@@ -76,8 +76,17 @@ Before you begin, ensure you have the following installed:
          2.2. change variable name in this files:
             - graph/graph.py change LLM type [View implementation](./graph/graph.py#L85-L89)
             - agent/agent.py change agent initial MAX_ITERATIONS in [View implementation](./graph/states.py#L229-L243)
+         2.3. Test sokoban some test files: sokoban-tree-based/dataset/test/1_4.txt
       3. uv add -r requirements.txt
          uv run sokoban.py
+
+   - **How to use**:
+   Step 1: open the gradio URL in firefox or other browse, the gradio URL like this example: https://277d00fc4eb724a0ce.gradio.live
+   Step 2: upload the sokoban game file 
+   Step 3: click the "Sokoban Game File Saving...!" botton to upload the file in step 2
+   Step 4: click the "Submit" botton to run the agentic flow
+   Step 5: check the result in console or gradio UI
+   Step 6: After finish reset or start again from step 1
 
    - **Running on**:
       1. local URL:  
@@ -86,7 +95,7 @@ Before you begin, ensure you have the following installed:
       2. Running on public URL: 
          output example: https://277d00fc4eb724a0ce.gradio.live
 
-![App → Sokoban Game Screenshot](dev/sokoban.jpg)
+![App → Sokoban Game Screenshot](dev/sokoban.png)
 
 ## 📄 License
 
