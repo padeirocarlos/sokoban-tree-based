@@ -1,13 +1,7 @@
-import torch
 import logging
-import numpy as np
-from datetime import datetime
 from dotenv import load_dotenv
-
-from typing import Dict,Any,List,Union
+from typing import Dict, Any, List
 from langchain_ollama import ChatOllama
-from .output_entity import GeneralResult
-
 from langchain_core.tools import tool, BaseTool
 from langchain_core.messages import HumanMessage
 from .instructions import sokoban_reflection_template
@@ -17,7 +11,7 @@ from sokoban.sokoban_tools import global_sokobanGame as sokobanGame
 load_dotenv(override=True)
 logger = logging.getLogger("Sokoban-Agentic-Workflow")
 
-def convert_current_state_to_map() -> str:
+def convert_current_state_to_map(sokobanGame=sokobanGame) -> str:
     map_width = sokobanGame.levelObj['width']
     map_height = sokobanGame.levelObj['height']
     map = sokobanGame.levelObj['mapObj']
@@ -93,7 +87,7 @@ def _makePlayerMove(player_moving: str) -> str:
     """
     return makePlayerMove(player_moving)
 
-def makePlayerMove(player_moving: str) -> str:
+def makePlayerMove(player_moving: str, sokobanGame=sokobanGame) -> str:
     """
     Attempt to move the player in a specified direction in the Sokoban game.
     
@@ -232,23 +226,23 @@ class SokobanAgentic:
     def __init__(self, model_name: str="llama3"):
         self.model_name = model_name
     
-    
-    async def sokoban_reflection_agent(self, user_query:str , model_name:str) -> dict: 
+    async def sokoban_reflection_agent(self, sokoban_game:str , model_name:str) -> dict: 
         """
         Docstring for sokoban_agent
         
-        :param user_query: Description
+        :param sokoban_game: Description
         :param model_name: Description
         :param prompt_type: Description
         :return: Description
         """
-
+        iterations = 0
+        MAX_ITERATIONS = 5
         LEVEL_COMPLETED = False
+        tools = [_makePlayerMove]
         sokoban_game_solution = []
         content = "Your task is to solve the sokoban game"
-        tools = [_makePlayerMove]
 
-        template_reflection_assist = sokoban_reflection_template(sokoban_game_state=user_query)
+        template_reflection_assist = sokoban_reflection_template(sokoban_game_state=sokoban_game)
         
         generation_llm = ChatOllama(name = "Sokoban-Assistant-Agent", 
                                     model = model_name, 
@@ -264,7 +258,7 @@ class SokobanAgentic:
         generation_chain = llm_bind_tools 
         messages = [HumanMessage(content=template_reflection_assist)]
         
-        while not LEVEL_COMPLETED:
+        while not LEVEL_COMPLETED and MAX_ITERATIONS >= iterations :
             
             result = await generation_chain.ainvoke(messages)
             
@@ -275,10 +269,9 @@ class SokobanAgentic:
             template_reflection_assist = sokoban_reflection_template(sokoban_game_state=current_state_map, sokoban_new_game_state = sokoban_game_state, new_state=True)
             messages = [HumanMessage(content=template_reflection_assist)]
         
-            logger.info(f""" 📝 Agent_Running Intermediate Steps : {sokoban_game_solution} 🔍 """)
-            
             if "LEVEL_COMPLETED" in str(sokoban_game_result):
                 LEVEL_COMPLETED = True
+            iterations += 1
             
         return { "answers": sokoban_game_solution, "content": f"{content}", "role": "assistant",}
     

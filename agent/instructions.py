@@ -119,13 +119,16 @@ def sokoban_reflection_template(sokoban_game_state:str, sokoban_new_game_state:s
         - '#' represents the wall
         - ' ' represents the empty free space which player or box can move into. 
         
-        Sokoban output requirements example:
+        Directions moves sokoban output and requirements example:
         
-        1. <U> Move the player from (7,7) to (6,7), box positions are kept as (3,3),(5,5)
-        2. <U> Move the player from (3,2) to (2,2), box positions are kept as (3,3),(7,6)
-        3. <D> Move the player from (2,3) to (3,3), box positions are updated to (4,3) to (7,6)
-        4. <R> Move the player from (6,4) to (7,4), box positions are updated to (3,3) to (7,6)
-        5: <L> Move the player from (7,3) to (7,2), box positions are kept as (3,3), (7,6)
+        1. <U> Move Up the player from (7,7) to (6,7), box positions are kept as (3,3),(5,5)
+        2. <U> Move Up the player from (3,2) to (2,2), box positions are kept as (3,3),(7,6)
+        3. <D> Move Down the player from (4,5) to (5,5), box positions are updated to (3,3), (6,5)
+        4. <D> Move Down the player from (5,5) to (6,5), box positions are updated to (3,3), (7,5)
+        4. <R> Move Right the player from (6,4) to (7,4), box positions are updated to (3,3) to (7,6)
+        5. <R> Move Right the player from (2,2) to (2,3), box positions are kept as (3,3), (7,6)
+        6. <L> Move Left the player from (4,7) to (4,6), box positions are kept as (3,3), (5,5)
+        7. <L> Move Left the player from (4,6) to (4,5), box positions are kept as (3,3), (5,5)
     """
 
     sokoban_normal_prompt = f"""

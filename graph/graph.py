@@ -1,5 +1,4 @@
 import os
-import time
 import uuid
 import logging
 from pathlib import Path
@@ -8,12 +7,12 @@ from graph.states import initiate_state
 from langgraph.graph import StateGraph, END
 from sokoban.sokoban_tools import SokobanRules
 from langgraph.checkpoint.memory import InMemorySaver
-from sokoban.sokoban_tools import global_sokobanGame
+from sokoban.sokoban_tools import global_sokobanGame as sokobanGame
+from agent.agent import SokobanAgentic, convert_current_state_to_map
 
 from edges.edges import (
     route_after_executor_node,
 )
-
 from nodes.nodes import (
     move_node,
     executor_node,
@@ -40,7 +39,6 @@ async def workflow_app(sql_memory = InMemorySaver()) -> StateGraph:
     
     workflow.add_conditional_edges("executor", route_after_executor_node,
         {
-            "END": END,
             "moves": "moves",
             "result": "result",
         }
@@ -48,7 +46,7 @@ async def workflow_app(sql_memory = InMemorySaver()) -> StateGraph:
     
     workflow.add_edge("result", END)
     graph = workflow.compile(checkpointer=sql_memory)
-    graph.get_graph().draw_mermaid_png(output_file_path="dev/sokoban.png")
+    graph.get_graph().draw_mermaid_png(output_file_path="dev/flowchart.png")
     
     return graph
 
@@ -58,11 +56,20 @@ class SokobanChat:
         self.interaction_number = 0
         self.memory = InMemorySaver()
         self.sokobanChat_id = str(uuid.uuid4())
-        self.initial_sokoban = None
+        self.file_path_upload = False
 
     async def setup(self):
         await self.build_graph()
-        self.initial_sokoban = SokobanRules(os.path.join(os.getcwd(), "dataset/test/4_1.txt"))
+        sokobanGame = SokobanRules(os.path.join(os.getcwd(), "dataset/test/1_3.txt"))
+    
+    async def file_setup(self, file_path = None):
+        if file_path is None:
+            file_path = os.path.join(os.getcwd(), "dataset/test/1_3.txt")
+            self.file_path_upload = False
+        else:
+            self.file_path_upload = True
+        sokobanGame = SokobanRules(file_path.name)
+        return convert_current_state_to_map(sokobanGame)
     
     async def build_graph(self):
         # Set up Graph Builder with State
@@ -74,25 +81,18 @@ class SokobanChat:
         :param message: Description
         :param history: Description
         """
-        
         config = {"configurable": {"thread_id": self.sokobanChat_id}}
         
-        # initial_sokoban = SokobanRules(os.path.join(os.getcwd(), "dataset/test/4_1.txt"))
-        # initial_sokoban = SokobanRules(os.path.join(os.getcwd(), "dataset/test/1_0.txt"))
-        
-        logger.info(f"\n {str(self.initial_sokoban.serialize_map())}")
-        
         # gpt-oss:20b llama3:latest mistral:latest ollama3 qwen3 ayansh03/agribot
-        state = initiate_state(self.initial_sokoban, "qwen3") 
-        
+        state = initiate_state(model_name = "qwen3:latest", test_file=os.path.join(os.getcwd(), "dataset/test/1_4.txt")) 
         self.interaction_number = state["max_iterations"]
-        
         result = await self.graph.ainvoke(state, config=config)
         
         # This for nake sure that first response should be from final_response 
-        final_response = result["final_response"]
-        
-        if not final_response:
-            final_response = result.get("answers", None)
+        visited_map_state = "\n ------ \n".join(result['visited_map_state'])
+        if str(result['status']).lower() == ("success").lower():
+            final_response = f" Puzzle State: {visited_map_state}  \n ------ \n | 🔬 🚀 Congratulation 🚀 You solved the puzzle!  \n Puzzle Move: {result['moves']} \n"      
+        else:
+            final_response = f" Puzzle State: {visited_map_state}  \n ------ \n | 🔬 ⚠️ The AI fails to solve it. Try it later 🏄🏽!  \n Puzzle Move: {result['moves']} \n"
         
         return {"role": "assistant", "content": final_response}
