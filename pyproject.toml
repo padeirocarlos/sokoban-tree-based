@@ -1,0 +1,16 @@
+[project]
+name = "sokoban-tree-based"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dotenv>=0.9.9",
+    "gradio>=6.5.1",
+    "imageio>=2.37.2",
+    "langchain>=1.2.8",
+    "langchain-classic>=1.0.1",
+    "langchain-ollama>=1.0.1",
+    "langgraph>=1.0.7",
+    "torch>=2.10.0",
+]

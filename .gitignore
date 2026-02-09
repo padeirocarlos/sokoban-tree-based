@@ -143,6 +143,12 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+agent/weight/*.pth
+/agent/weight/*.pth
+agent/weight/
+data_RAG/agriculture/FAW
+data_RAG/agriculture/NLB
+data_RAG/agriculture/MSV
 
 # Spyder project settings
 .spyderproject
