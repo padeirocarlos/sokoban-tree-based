@@ -1,27 +1,13 @@
-import os
 from dotenv import load_dotenv
-from datetime import datetime
 load_dotenv(override=True)
-dt = datetime.now()
 
-def sokoban_system_template(user_query:str, tools:str) -> str:
-    
-    sokoban_prompt = f"""
-        Task:
-        Your task is to solve the sokoban game delimited by triple backticks: ```{user_query}```. You have access to the following tools:
-            {tools}
-        
-        Context: 
-        The sokoban game is a puzzle game where the player (@) must push boxes ($) onto target locations in a grid-like environment. 
-        The player can only move in four directions: up <U>, down <D>, left <L>, right <R>, and cannot move through walls or other boxes. 
-        The goal is to push all boxes onto their respective target locations.
-        
+SOKOBAN_RULES_TEXT = """
         Sokoban Rules:
         - Walls (#) are completely blocked
+        - Treat walls as impassable boundaries
         - The player (@) cannot move into a wall
         - Boxes ($) cannot be pushed into a wall
         - Boxes ($) cannot be moved only can be pushed by player (@)
-        - Treat walls as impassable boundaries.
 
         Player (@) movement:
         - The player (@) can move up, down, left, or right into an empty space ( ) or a target (.)
@@ -40,13 +26,27 @@ def sokoban_system_template(user_query:str, tools:str) -> str:
         - The game is solved when all boxes ($) are placed on all targets (.).
 
         Sokoban map format:
-        - The map is stored in a nested list; 
+        - The map is stored in a nested list;
         - Each item represents the element at that position
-        - "#" represents the wall
-        - "@" represents player
-        - "$" represents box
-        - "." represents target
-        - " " represents the empty free space which player or box can move into. 
+        - '#' represents the wall
+        - '@' represents player
+        - '$' represents box
+        - '.' represents target
+        - ' ' represents the empty free space which player or box can move into.
+"""
+
+def sokoban_system_template(user_query:str, tools:str) -> str:
+
+    sokoban_prompt = f"""
+        Task:
+        Your task is to solve the sokoban game delimited by triple backticks: ```{user_query}```. You have access to the following tools:
+            {tools}
+
+        Context:
+        The sokoban game is a puzzle game where the player (@) must push boxes ($) onto target locations in a grid-like environment.
+        The player can only move in four directions: up <U>, down <D>, left <L>, right <R>, and cannot move through walls or other boxes.
+        The goal is to push all boxes onto their respective target locations.
+        {SOKOBAN_RULES_TEXT}
     """
     return sokoban_prompt
 
@@ -81,46 +81,14 @@ def sokoban_assist_template(user_query:str, input:str, tools:str, tool_names:str
 def sokoban_reflection_template(sokoban_game_state:str, sokoban_new_game_state:str=None, new_state:bool=False) -> str:
       
     sokoban_baseline_prompt = f"""
-        Context: 
-            The sokoban game is a puzzle game where the player (@) must push boxes ($) onto target locations in a grid-like environment. 
-            The player can only move in four directions: up <U>, down <D>, left <L>, right <R>, and cannot move through walls or other boxes. 
-            The goal is to push all boxes onto their respective target locations. The steps should be in the format of a numbered list, 
+        Context:
+            The sokoban game is a puzzle game where the player (@) must push boxes ($) onto target locations in a grid-like environment.
+            The player can only move in four directions: up <U>, down <D>, left <L>, right <R>, and cannot move through walls or other boxes.
+            The goal is to push all boxes onto their respective target locations. The steps should be in the format of a numbered list,
             where each step describes the player's movement.
-        
-        Sokoban Rules:
-        - Walls (#) are completely blocked
-        - Treat walls as impassable boundaries
-        - The player (@) cannot move into a wall
-        - Boxes ($) cannot be pushed into a wall
-        - Boxes ($) cannot be moved only can be pushed by player (@)
-
-        Player (@) movement:
-        - The player (@) can move up, down, left, or right into an empty space ( ) or a target (.)
-        - The player (@) cannot move diagonally
-        - The player (@) cannot move into a wall
-        - The player (@) cannot move through boxes ($)
-        - The player (@) cannot pull boxes (only push)
-
-        Pushing boxes ($):
-        - If the player (@) moves into a box, the box is pushed one step in the same direction;
-        - A box ($) cannot be moved only can be pushed by player (@)
-        - A box can only be pushed if the square behind it is free (empty or target .);
-        - A box cannot be pushed into a wall or another box.
-
-        Winning condition:
-        - The game is solved when all boxes ($) are placed on all targets (.).
-
-        Sokoban map format:
-        - The map is stored in a nested list; 
-        - Each item represents the element at that position
-        - '$' represents box
-        - '.' represents target
-        - '@' represents player
-        - '#' represents the wall
-        - ' ' represents the empty free space which player or box can move into. 
-        
+        {SOKOBAN_RULES_TEXT}
         Directions moves sokoban output and requirements example:
-        
+
         1. <U> Move Up the player from (7,7) to (6,7), box positions are kept as (3,3),(5,5)
         2. <U> Move Up the player from (3,2) to (2,2), box positions are kept as (3,3),(7,6)
         3. <D> Move Down the player from (4,5) to (5,5), box positions are updated to (3,3), (6,5)

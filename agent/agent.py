@@ -1,3 +1,4 @@
+import re
 import logging
 from dotenv import load_dotenv
 from typing import Dict, Any, List
@@ -8,6 +9,45 @@ from langchain_core.callbacks import BaseCallbackHandler
 
 load_dotenv(override=True)
 logger = logging.getLogger("Sokoban-Agentic-Workflow")
+
+def parse_direction(text: str) -> str | None:
+    """Parse a single direction (U/D/L/R) from a line of text.
+
+    Checks for explicit markers like <U>, (U), **U** first,
+    then falls back to keyword matching (UP/DOWN/LEFT/RIGHT)
+    and finally bare letter matching with word-boundary awareness.
+    Returns None if no direction is found.
+    """
+    text_upper = text.upper()
+
+    # Priority 1: explicit delimited markers
+    marker_match = re.search(r'<([UDLR])>', text_upper)
+    if marker_match:
+        return marker_match.group(1)
+
+    paren_match = re.search(r'\(([UDLR])\)', text_upper)
+    if paren_match:
+        return paren_match.group(1)
+
+    bold_match = re.search(r'\*\*([UDLR])\*\*', text_upper)
+    if bold_match:
+        return bold_match.group(1)
+
+    quote_match = re.search(r"'([UDLR])'", text_upper)
+    if quote_match:
+        return quote_match.group(1)
+
+    # Priority 2: full direction words
+    for word, letter in [("UP", "U"), ("DOWN", "D"), ("LEFT", "L"), ("RIGHT", "R")]:
+        if re.search(r'\b' + word + r'\b', text_upper):
+            return letter
+
+    # Priority 3: bare letter with word boundary
+    for letter in ["U", "D", "L", "R"]:
+        if re.search(r'\b' + letter + r'\b', text_upper):
+            return letter
+
+    return None
 
 def convert_current_state_to_map(sokobanGame) -> str:
     import copy
@@ -124,22 +164,12 @@ def makePlayerMove(player_moving: str, sokobanGame) -> str:
         return "LEVEL_COMPLETED"
     
     # Parse movement direction and calculate offset
-    direction = str(player_moving).upper()
-    
-    if "<U>" in direction or "(U)" in direction or "UP" in direction or "U" in direction or "'U'" in direction or "**U**" in direction: 
-        xOffset = 0
-        yOffset = -1
-    elif "<D>" in direction or "(D)" in direction or "DOWN" in direction or "D" in direction or "'D'" in direction or "**D**" in direction:
-        xOffset = 0
-        yOffset = 1
-    elif "<L>" in direction or "(L)" in direction or "LEFT" in direction or "L" in direction or "'L'" in direction or  "**L**" in direction: 
-        xOffset = -1
-        yOffset = 0
-    elif "<R>" in direction or "(R)" in direction or "RIGHT" in direction or "R" in direction or "'R'" in direction or  "**R**" in direction:
-        xOffset = 1
-        yOffset = 0
-    else:
+    parsed = parse_direction(str(player_moving))
+    if parsed is None:
         return f"Invalid direction: '{player_moving}'. Use U/D/L/R or UP/DOWN/LEFT/RIGHT"
+
+    offsets = {"U": (0, -1), "D": (0, 1), "L": (-1, 0), "R": (1, 0)}
+    xOffset, yOffset = offsets[parsed]
     # Calculate target position
     target_x = playerx + xOffset
     target_y = playery + yOffset
@@ -221,47 +251,24 @@ class SokobanAgentic:
         valid_steps = ""
         moving_steps = ""
         plan = response.strip().split('\n')
-        for direction in plan:
-            if "<U>" in direction or "(U)" in direction or "UP" in direction or "U" in direction or "'U'" in direction or "**U**" in direction:
-                processed_move = makePlayerMove('U', sokoban_rules)
+        for line in plan:
+            parsed = parse_direction(line)
+            if parsed is not None:
+                processed_move = makePlayerMove(parsed, sokoban_rules)
                 if "VALID_MOVE" in str(processed_move):
-                    valid_steps += "U"
-                moving_steps += direction +" | Move result: "+processed_move+ "\n"
+                    valid_steps += parsed
+                moving_steps += line + " | Move result: " + processed_move + "\n"
 
-            elif "<D>" in direction or "(D)" in direction or "DOWN" in direction or "D" in direction or "'D'" in direction or "**D**" in direction:
-                processed_move = makePlayerMove('D', sokoban_rules)
-                if "VALID_MOVE" in str(processed_move):
-                    valid_steps += "D"
-                moving_steps += direction +" | Move result: "+processed_move+ "\n"
-
-            elif "<L>" in direction or "(L)" in direction or "LEFT" in direction or "L" in direction or "'L'" in direction or "**L**" in direction:
-                processed_move = makePlayerMove('L', sokoban_rules)
-                if "VALID_MOVE" in str(processed_move):
-                    valid_steps += "L"
-                moving_steps += direction +" | Move result: "+processed_move+ "\n"
-
-            elif "<R>" in direction or "(R)" in direction or "RIGHT" in direction or "R" in direction or "'R'" in direction or "**R**" in direction:
-                processed_move = makePlayerMove('R', sokoban_rules)
-                if "VALID_MOVE" in str(processed_move):
-                    valid_steps += "R"
-                moving_steps += direction +" | Move result: "+processed_move+ "\n"
-                
         sokoban_game_solution.append(valid_steps)
         return moving_steps
     
     def post_processing_moves(self, response) -> str:
         steps = ""
         plan = response.strip().split('\n')
-
-        for direction in plan:
-            if "<U>" in direction or "(U)" in direction or "UP" in direction or "U" in direction or "'U'" in direction or "**U**" in direction:
-                steps += "U"
-            elif "<D>" in direction or "(D)" in direction or "DOWN" in direction or "D" in direction or "'D'" in direction or "**D**" in direction:
-                steps += "D"
-            elif "<L>" in direction or "(L)" in direction or "LEFT" in direction or "L" in direction or "'L'" in direction or "**L**" in direction:
-                steps += "L"
-            elif "<R>" in direction or "(R)" in direction or "RIGHT" in direction or "R" in direction or "'R'" in direction or "**R**" in direction:
-                steps += "R"
+        for line in plan:
+            parsed = parse_direction(line)
+            if parsed is not None:
+                steps += parsed
         return steps
 
     def find_tool_by_name(self, tool_name, tool_list: list):
