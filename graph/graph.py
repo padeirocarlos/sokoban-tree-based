@@ -44,8 +44,11 @@ async def workflow_app(sql_memory = InMemorySaver()) -> StateGraph:
     
     workflow.add_edge("result", END)
     graph = workflow.compile(checkpointer=sql_memory)
-    graph.get_graph().draw_mermaid_png(output_file_path="dev/flowchart.png")
-    
+    try:
+        graph.get_graph().draw_mermaid_png(output_file_path="dev/flowchart.png")
+    except Exception as e:
+        logger.warning(f"Could not generate flowchart: {e}")
+
     return graph
 
 class SokobanChat:

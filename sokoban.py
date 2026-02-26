@@ -29,11 +29,7 @@ async def process_sokoban_file(sokobanChat):
     return sokobanChat, results["content"]
 
 def free_resources(sokobanChat):
-    try:
-        if sokobanChat:
-            sokobanChat.setup()
-    except Exception as e:
-        print(f"Exception during cleanup: {e}")
+    pass
         
 with gr.Blocks(theme=gr.themes.Default(primary_hue="emerald")) as demo:
     gr.Markdown("## Sokoban Game Assistant Supporter ")

@@ -272,4 +272,4 @@ class SokobanAgentic:
         for tool in tool_list:
             if tool.name == tool_name:
                 return tool
-        raise f"Invalid_Tool"
+        raise ValueError(f"Invalid tool: {tool_name}")

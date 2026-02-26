@@ -28,3 +28,7 @@ def route_after_executor_node(state: Dict[str, Any]) -> Literal[ "moves", "resul
     elif state['status'] == "success":
         logger.info(f" 📝 Sokoban successful executed | Status: {state['status']} | Iterations: {state['current_iteration']}/{state['max_iterations']} ✅")
         return "result"
+
+    else:
+        logger.warning(f"Unexpected status '{state['status']}', routing to result")
+        return "result"
