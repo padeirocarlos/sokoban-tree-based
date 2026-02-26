@@ -12,37 +12,38 @@ load_dotenv(override=True)
 logger = logging.getLogger("Sokoban-Agentic-Workflow")
 
 def convert_current_state_to_map(sokobanGame=sokobanGame) -> str:
+    import copy
     map_width = sokobanGame.levelObj['width']
     map_height = sokobanGame.levelObj['height']
-    map = sokobanGame.levelObj['mapObj']
+    game_map = copy.deepcopy(sokobanGame.levelObj['mapObj'])
     starting_map = sokobanGame.levelObj['mapObj']
-    
+
     for i in range(map_height):
         for j in range(map_width):
             if starting_map[i][j] == "#":
-                map[i][j] = "#"
+                game_map[i][j] = "#"
             # updated player and stars position
             elif starting_map[i][j] == ".":
                 if (i, j) == sokobanGame.gameStateObj['player']:
-                    map[i][j] = "+"
+                    game_map[i][j] = "+"
                 elif (i, j) in sokobanGame.gameStateObj['boxes']:
-                    map[i][j] = "*"
+                    game_map[i][j] = "*"
                 else:
-                    map[i][j] = "."
+                    game_map[i][j] = "."
             elif (i, j) == sokobanGame.gameStateObj['player']:
-                    map[i][j] = "@"
+                    game_map[i][j] = "@"
             elif (i, j) in sokobanGame.gameStateObj['boxes']:
-                    map[i][j] = "$"
+                    game_map[i][j] = "$"
             else:
             # other places are just floor
-                map[i][j] = " "
-        
-    game_map = "\n".join("".join(row) for row in map)
+                game_map[i][j] = " "
+
+    game_map_str = "\n".join("".join(row) for row in game_map)
     player = f"\n Player (@) position: {sokobanGame.gameStateObj['player']}"
     box = f"\n Box ($) positions: {sokobanGame.gameStateObj['boxes']}"
     target = f"\n Target (.) positions: {sokobanGame.targets}"
     
-    return f"{game_map} \n {player} {box} {target}"
+    return f"{game_map_str} \n {player} {box} {target}"
 
 @tool
 def _makePlayerMove(player_moving: str) -> str:
@@ -132,7 +133,7 @@ def makePlayerMove(player_moving: str, sokobanGame=sokobanGame) -> str:
         """Returns True if the (x, y) position on
         the map is a wall, otherwise return False."""
         if x < 0 or x >= len(sokobanGame.mapObj) or y < 0 or y >= len(sokobanGame.mapObj[x]):
-            return False # x and y aren't actually on the map.
+            return True # x and y aren't actually on the map.
         elif sokobanGame.mapObj[x][y] in ('#', 'x'):
             return True # wall is blocking
         return False
@@ -199,16 +200,16 @@ def makePlayerMove(player_moving: str, sokobanGame=sokobanGame) -> str:
         box_push_y = target_y + yOffset
         
         # Check if box can be pushed
-        if isBlocked(box_push_x, box_push_y):
+        if not isBlocked(box_push_x, box_push_y):
             # Push the box
             box_index = boxes.index((target_x, target_y))
             boxes[box_index] = (box_push_x, box_push_y)
             sokobanGame.gameStateObj['boxes'] = boxes
             # Move player to target position
             sokobanGame.gameStateObj['player'] = (target_x, target_y)
-            return f"It is VALID_MOVE, the Player's new position is ({sokobanGame.gameStateObj['player'][0]}, {sokobanGame.gameStateObj['player'][1]}) \n the box's new position {','.join([str(({box[0]}, {box[1]})) for box in boxes])} \n" 
+            return f"It is VALID_MOVE, the Player's new position is ({sokobanGame.gameStateObj['player'][0]}, {sokobanGame.gameStateObj['player'][1]}) \n the box's new position {','.join([str(({box[0]}, {box[1]})) for box in boxes])} \n"
         else:
-            return f"Cannot move, because the box's new position ({target_x}, {target_y}) is blocked, try a different move"
+            return f"Cannot move, because the box's new position ({box_push_x}, {box_push_y}) is blocked, try a different move"
     
     # Move player to target position
     sokobanGame.gameStateObj['player'] = (target_x, target_y)
@@ -278,27 +279,27 @@ class SokobanAgentic:
     def reflection_processing_moves(self, response, sokoban_game_solution) -> str:
         valid_steps = ""
         moving_steps = ""
-        plan = response.strip().split('\n') 
+        plan = response.strip().split('\n')
         for direction in plan:
-            if "<U>" in direction or "(U)" in direction or "UP" in direction or "U" in direction or "'U'" in direction or "**U**" in direction: 
+            if "<U>" in direction or "(U)" in direction or "UP" in direction or "U" in direction or "'U'" in direction or "**U**" in direction:
                 processed_move = makePlayerMove('U')
                 if "VALID_MOVE" in str(processed_move):
                     valid_steps += "U"
                 moving_steps += direction +" | Move result: "+processed_move+ "\n"
-                
-            if "<D>" in direction or "(D)" in direction or "DOWN" in direction or "D" in direction or "'D'" in direction or "**D**" in direction:
+
+            elif "<D>" in direction or "(D)" in direction or "DOWN" in direction or "D" in direction or "'D'" in direction or "**D**" in direction:
                 processed_move = makePlayerMove('D')
                 if "VALID_MOVE" in str(processed_move):
                     valid_steps += "D"
                 moving_steps += direction +" | Move result: "+processed_move+ "\n"
-                
-            if "<L>" in direction or "(L)" in direction or "LEFT" in direction or "L" in direction or "'L'" in direction or "**L**" in direction: 
+
+            elif "<L>" in direction or "(L)" in direction or "LEFT" in direction or "L" in direction or "'L'" in direction or "**L**" in direction:
                 processed_move = makePlayerMove('L')
                 if "VALID_MOVE" in str(processed_move):
                     valid_steps += "L"
                 moving_steps += direction +" | Move result: "+processed_move+ "\n"
-                
-            if "<R>" in direction or "(R)" in direction or "RIGHT" in direction or "R" in direction or "'R'" in direction or "**R**" in direction:
+
+            elif "<R>" in direction or "(R)" in direction or "RIGHT" in direction or "R" in direction or "'R'" in direction or "**R**" in direction:
                 processed_move = makePlayerMove('R')
                 if "VALID_MOVE" in str(processed_move):
                     valid_steps += "R"
@@ -309,16 +310,16 @@ class SokobanAgentic:
     
     def post_processing_moves(self, response) -> str:
         steps = ""
-        plan = response.strip().split('\n') 
+        plan = response.strip().split('\n')
 
         for direction in plan:
-            if "<U>" in direction or "(U)" in direction or "UP" in direction or "U" in direction or "'U'" in direction or "**U**" in direction: 
+            if "<U>" in direction or "(U)" in direction or "UP" in direction or "U" in direction or "'U'" in direction or "**U**" in direction:
                 steps += "U"
-            if "<D>" in direction or "(D)" in direction or "DOWN" in direction or "D" in direction or "'D'" in direction or "**D**" in direction:
-                steps += "D" 
-            if "<L>" in direction or "(L)" in direction or "LEFT" in direction or "L" in direction or "'L'" in direction or "**L**" in direction: 
+            elif "<D>" in direction or "(D)" in direction or "DOWN" in direction or "D" in direction or "'D'" in direction or "**D**" in direction:
+                steps += "D"
+            elif "<L>" in direction or "(L)" in direction or "LEFT" in direction or "L" in direction or "'L'" in direction or "**L**" in direction:
                 steps += "L"
-            if "<R>" in direction or "(R)" in direction or "RIGHT" in direction or "R" in direction or "'R'" in direction or "**R**" in direction:
+            elif "<R>" in direction or "(R)" in direction or "RIGHT" in direction or "R" in direction or "'R'" in direction or "**R**" in direction:
                 steps += "R"
         return steps
 
