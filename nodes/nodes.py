@@ -8,7 +8,7 @@ import time
 import logging
 from graph.states import SokobanState
 from sokoban.sokoban_tools import SokobanRules
-from agent.agent import SokobanAgentic, makePlayerMove, convert_current_state_to_map
+from agent.agent import SokobanAgentic, make_player_move, convert_current_state_to_map
 
 logger = logging.getLogger("Sokoban-Agentic-Workflow (SAW)")
 sokobanAgentic = SokobanAgentic()
@@ -64,11 +64,11 @@ async def executor_node(state: SokobanState) -> SokobanState:
             state['status'] = "empty"
             return state
         
-        sokobanRules = SokobanRules(state['test_file'])
-        
+        sokoban_rules = SokobanRules(state['test_file'])
+
         for move in state['moves']:
-            move_result = makePlayerMove(player_moving=move, sokobanGame=sokobanRules)
-            cur_map_state = convert_current_state_to_map(sokobanGame=sokobanRules)
+            move_result = make_player_move(player_moving=move, sokoban_game=sokoban_rules)
+            cur_map_state = convert_current_state_to_map(sokoban_game=sokoban_rules)
             total_moves += move
             
             if "LEVEL_COMPLETED" in move_result:
