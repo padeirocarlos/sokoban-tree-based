@@ -4,12 +4,10 @@ Workflow nodes for the deep research vehicles agent.
 This module contains all the node functions that implement the core
 logic of the agentic vehicles workflow.
 """
-import os
 import time
 import logging
 from graph.states import SokobanState
 from sokoban.sokoban_tools import SokobanRules
-from sokoban.sokoban_tools import global_sokobanGame as sokobanGame
 from agent.agent import SokobanAgentic, makePlayerMove, convert_current_state_to_map
 
 logger = logging.getLogger("Sokoban-Agentic-Workflow (SAW)")
@@ -28,18 +26,15 @@ async def move_node(state: SokobanState) -> SokobanState:
         state['moves'] = ""
         state['status'] = "continue"
         state['visited_map_state'] = []
-        model_name = state['model_name'] 
-        sokoban_game = convert_current_state_to_map(sokobanGame=sokobanGame)
-        
+        model_name = state['model_name']
+        sokoban_rules = SokobanRules(state['test_file'])
+        sokoban_game = convert_current_state_to_map(sokoban_rules)
+
         if int(state['current_iteration']) >= 2:
-            sokoban_game = f"""\n {sokoban_game} \n This previous proposed solution steps, 
+            sokoban_game = f"""\n {sokoban_game} \n This previous proposed solution steps,
                                 which did not solved the game, can you improve it : \n {state["previous_solution"][-1]}"""
-            
-        # Call the model and record the execution time, and model name
-            # gpt-oss:20b llama3:latest mistral:latest ollama3 qwen3 ayansh03/agribot
-        
-        # result = await sokobanAgentic.sokoban_react_agent(sokoban_game=sokoban_game, model_name=model_name) 
-        result = await sokobanAgentic.sokoban_reflection_agent(sokoban_game=sokoban_game, model_name=model_name) 
+
+        result = await sokobanAgentic.sokoban_reflection_agent(sokoban_game=sokoban_game, model_name=model_name, sokoban_rules=sokoban_rules)
         
         plan_result = "".join(result["answers"])
         state["previous_solution"].append(plan_result)

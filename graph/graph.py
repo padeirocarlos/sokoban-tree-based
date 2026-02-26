@@ -1,14 +1,12 @@
 import os
 import uuid
 import logging
-from pathlib import Path
 from graph.states import SokobanState
 from graph.states import initiate_state
 from langgraph.graph import StateGraph, END
 from sokoban.sokoban_tools import SokobanRules
 from langgraph.checkpoint.memory import InMemorySaver
-from sokoban.sokoban_tools import global_sokobanGame as sokobanGame
-from agent.agent import SokobanAgentic, convert_current_state_to_map
+from agent.agent import convert_current_state_to_map
 
 from edges.edges import (
     route_after_executor_node,
@@ -57,34 +55,30 @@ class SokobanChat:
         self.memory = InMemorySaver()
         self.sokobanChat_id = str(uuid.uuid4())
         self.file_path_upload = False
+        self.uploaded_file_path = None
 
     async def setup(self):
         await self.build_graph()
-        sokobanGame = SokobanRules(os.path.join(os.getcwd(), "dataset/test/1_3.txt"))
-    
-    async def file_setup(self, file_path = None):
+
+    async def file_setup(self, file_path=None):
         if file_path is None:
-            file_path = os.path.join(os.getcwd(), "dataset/test/1_3.txt")
+            file_path_str = os.path.join(os.getcwd(), "dataset/test/1_3.txt")
             self.file_path_upload = False
         else:
+            file_path_str = file_path.name
             self.file_path_upload = True
-        sokobanGame = SokobanRules(file_path.name)
-        return convert_current_state_to_map(sokobanGame)
-    
+        self.uploaded_file_path = file_path_str
+        sokoban_rules = SokobanRules(file_path_str)
+        return convert_current_state_to_map(sokoban_rules)
+
     async def build_graph(self):
-        # Set up Graph Builder with State
         self.graph = await workflow_app(self.memory)
-     
+
     async def run_superstep(self):
-        """
-        :param self: Description
-        :param message: Description
-        :param history: Description
-        """
         config = {"configurable": {"thread_id": self.sokobanChat_id}}
-        
-        # gpt-oss:20b llama3:latest mistral:latest ollama3 qwen3 ayansh03/agribot
-        state = initiate_state(model_name = "qwen3:latest", test_file=os.path.join(os.getcwd(), "dataset/test/1_4.txt")) 
+
+        test_file = self.uploaded_file_path or os.path.join(os.getcwd(), "dataset/test/1_4.txt")
+        state = initiate_state(model_name="qwen3:latest", test_file=test_file)
         self.interaction_number = state["max_iterations"]
         result = await self.graph.ainvoke(state, config=config)
         

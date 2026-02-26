@@ -80,5 +80,3 @@ class SokobanRules:
                         'goals': goals,
                         'startState': self.gameStateObj}
 
-global global_sokobanGame
-global_sokobanGame = SokobanRules(os.path.join(os.getcwd(), "dataset/test/1_4.txt"))

@@ -2,16 +2,14 @@ import logging
 from dotenv import load_dotenv
 from typing import Dict, Any, List
 from langchain_ollama import ChatOllama
-from langchain_core.tools import tool, BaseTool
 from langchain_core.messages import HumanMessage
 from .instructions import sokoban_reflection_template
 from langchain_core.callbacks import BaseCallbackHandler
-from sokoban.sokoban_tools import global_sokobanGame as sokobanGame
 
 load_dotenv(override=True)
 logger = logging.getLogger("Sokoban-Agentic-Workflow")
 
-def convert_current_state_to_map(sokobanGame=sokobanGame) -> str:
+def convert_current_state_to_map(sokobanGame) -> str:
     import copy
     map_width = sokobanGame.levelObj['width']
     map_height = sokobanGame.levelObj['height']
@@ -45,50 +43,7 @@ def convert_current_state_to_map(sokobanGame=sokobanGame) -> str:
     
     return f"{game_map_str} \n {player} {box} {target}"
 
-@tool
-def _makePlayerMove(player_moving: str) -> str:
-    """
-    Attempt to move the player in a specified direction in the Sokoban game.
-    
-    This function validates and executes a player move, handling both simple 
-    movements and box-pushing mechanics. The move succeeds only if the target 
-    position is not blocked by a wall, or if pushing a box, the space behind 
-    the box is also free.
-    
-    Parameters:
-        player_moving (str): Direction to move the player. Accepts one formats:
-            - Up: 'U' (case-insensitive)
-            - Down: 'D' (case-insensitive)
-            - Left: 'L' (case-insensitive)
-            - Right: 'R' (case-insensitive)
-    
-    Returns:
-        str: A message describing the result of the move attempt:
-            - Success: "The player's new position is (x, y)"
-            - Failure: Reason why the move failed (wall blocking or box cannot be pushed)
-    
-    Behavior:
-        1. Validates the direction input
-        2. Checks if the target position contains a wall (move fails)
-        3. If target contains a box, checks if the box can be pushed:
-           - If space behind box is free: pushes box and moves player
-           - If space behind box is blocked: move fails
-        4. Updates game state if move is successful
-        5. Check if the current Sokoban level has been completed.
-        6. Check if a specific grid position contains a wall in the Sokoban game.
-        7. Check if a grid position is blocked and cannot be moved into.
-    
-    Examples:
-        makePlayerMove('U')
-        makePlayerMove('R')
-        makePlayerMove('D')
-    Note:
-        This function modifies the game state (player position and box positions)
-        when a move is successful.
-    """
-    return makePlayerMove(player_moving)
-
-def makePlayerMove(player_moving: str, sokobanGame=sokobanGame) -> str:
+def makePlayerMove(player_moving: str, sokobanGame) -> str:
     """
     Attempt to move the player in a specified direction in the Sokoban game.
     
@@ -227,80 +182,66 @@ class SokobanAgentic:
     def __init__(self, model_name: str="llama3"):
         self.model_name = model_name
     
-    async def sokoban_reflection_agent(self, sokoban_game:str , model_name:str) -> dict: 
-        """
-        Docstring for sokoban_agent
-        
-        :param sokoban_game: Description
-        :param model_name: Description
-        :param prompt_type: Description
-        :return: Description
-        """
+    async def sokoban_reflection_agent(self, sokoban_game:str, model_name:str, sokoban_rules) -> dict:
         iterations = 0
         MAX_ITERATIONS = 5
         LEVEL_COMPLETED = False
-        tools = [_makePlayerMove]
         sokoban_game_solution = []
         content = "Your task is to solve the sokoban game"
 
         template_reflection_assist = sokoban_reflection_template(sokoban_game_state=sokoban_game)
-        
-        generation_llm = ChatOllama(name = "Sokoban-Assistant-Agent", 
-                                    model = model_name, 
-                                    callbacks = [AgentCallbackHandler()], 
+
+        generation_llm = ChatOllama(name = "Sokoban-Assistant-Agent",
+                                    model = model_name,
+                                    callbacks = [AgentCallbackHandler()],
                                     max_iterations = 1,
                                     temperature=0.5)
-        
-        if "llama3" not in model_name: # ollama3 does not allow banding tool
-            llm_bind_tools = generation_llm.bind_tools(tools)
-        else:
-            llm_bind_tools = generation_llm
-            
-        generation_chain = llm_bind_tools 
+
+        generation_chain = generation_llm
         messages = [HumanMessage(content=template_reflection_assist)]
-        
-        while not LEVEL_COMPLETED and MAX_ITERATIONS >= iterations :
-            
+
+        while not LEVEL_COMPLETED and MAX_ITERATIONS >= iterations:
+
             result = await generation_chain.ainvoke(messages)
-            
-            current_state_map = convert_current_state_to_map() # current game state before the moving
-            sokoban_game_result = self.reflection_processing_moves(result.content, sokoban_game_solution)
-            sokoban_game_state = convert_current_state_to_map() + "\n" +sokoban_game_result # current game state after the moving
-            
-            template_reflection_assist = sokoban_reflection_template(sokoban_game_state=current_state_map, sokoban_new_game_state = sokoban_game_state, new_state=True)
+
+            current_state_map = convert_current_state_to_map(sokoban_rules)
+            sokoban_game_result = self.reflection_processing_moves(result.content, sokoban_game_solution, sokoban_rules)
+            sokoban_game_state = convert_current_state_to_map(sokoban_rules) + "\n" + sokoban_game_result
+
+            template_reflection_assist = sokoban_reflection_template(sokoban_game_state=current_state_map, sokoban_new_game_state=sokoban_game_state, new_state=True)
             messages = [HumanMessage(content=template_reflection_assist)]
-        
+
             if "LEVEL_COMPLETED" in str(sokoban_game_result):
                 LEVEL_COMPLETED = True
             iterations += 1
-            
+
         return { "answers": sokoban_game_solution, "content": f"{content}", "role": "assistant",}
     
-    def reflection_processing_moves(self, response, sokoban_game_solution) -> str:
+    def reflection_processing_moves(self, response, sokoban_game_solution, sokoban_rules) -> str:
         valid_steps = ""
         moving_steps = ""
         plan = response.strip().split('\n')
         for direction in plan:
             if "<U>" in direction or "(U)" in direction or "UP" in direction or "U" in direction or "'U'" in direction or "**U**" in direction:
-                processed_move = makePlayerMove('U')
+                processed_move = makePlayerMove('U', sokoban_rules)
                 if "VALID_MOVE" in str(processed_move):
                     valid_steps += "U"
                 moving_steps += direction +" | Move result: "+processed_move+ "\n"
 
             elif "<D>" in direction or "(D)" in direction or "DOWN" in direction or "D" in direction or "'D'" in direction or "**D**" in direction:
-                processed_move = makePlayerMove('D')
+                processed_move = makePlayerMove('D', sokoban_rules)
                 if "VALID_MOVE" in str(processed_move):
                     valid_steps += "D"
                 moving_steps += direction +" | Move result: "+processed_move+ "\n"
 
             elif "<L>" in direction or "(L)" in direction or "LEFT" in direction or "L" in direction or "'L'" in direction or "**L**" in direction:
-                processed_move = makePlayerMove('L')
+                processed_move = makePlayerMove('L', sokoban_rules)
                 if "VALID_MOVE" in str(processed_move):
                     valid_steps += "L"
                 moving_steps += direction +" | Move result: "+processed_move+ "\n"
 
             elif "<R>" in direction or "(R)" in direction or "RIGHT" in direction or "R" in direction or "'R'" in direction or "**R**" in direction:
-                processed_move = makePlayerMove('R')
+                processed_move = makePlayerMove('R', sokoban_rules)
                 if "VALID_MOVE" in str(processed_move):
                     valid_steps += "R"
                 moving_steps += direction +" | Move result: "+processed_move+ "\n"
@@ -323,7 +264,7 @@ class SokobanAgentic:
                 steps += "R"
         return steps
 
-    def find_tool_by_name(self, tool_name, tool_list: List[BaseTool]):
+    def find_tool_by_name(self, tool_name, tool_list: list):
         # some time the tool name came like this 'makePlayerMove('D')'
         if '(' in tool_name or ')' in tool_name:
             tool_name = tool_name.split('(')[0]
