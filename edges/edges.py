@@ -1,34 +1,28 @@
 """
-Routing and edge logic for the deep research agent workflow.
-
-This module contains the conditional routing functions that determine
-the flow of execution through the agentic workflow graph.
+Routing logic for the Sokoban agentic workflow graph.
 """
 import logging
 from typing import Literal, Dict, Any
+
 logger = logging.getLogger("Sokoban-Agentic-Workflow (SAW)")
 
-def route_after_executor_node(state: Dict[str, Any]) -> Literal[ "moves", "result"]:
-    """
-    This routing agent determines the next move step after predict a move,
-    and system state.
-    
-    :param state: Description
-    :type state: Dict[str, Any]
-    :rtype: Literal["END", "moves", "result"]
-    """
-    if state['status'] == "invalid" or state['status'] == "unsolved" or state['status'] == "empty":
-        if state['current_iteration'] >= state['max_iterations']:
-            logger.info(f" 📝 Could not find the solution | Status: {state['status']} | Iterations: {state['current_iteration']}/{state['max_iterations']} 🔍")
-            return "result"
-        else:
-            logger.info(f" ❌ Could not find solution at trial | Status: {state['status']} | Iterations: {state['current_iteration']}/{state['max_iterations']}")
-            return "moves"
-        
-    elif state['status'] == "success":
-        logger.info(f" 📝 Sokoban successful executed | Status: {state['status']} | Iterations: {state['current_iteration']}/{state['max_iterations']} ✅")
-        return "result"
 
+def route_after_executor_node(state: Dict[str, Any]) -> Literal["moves", "result"]:
+    """Decide whether to retry (back to moves) or finalize (to result)."""
+    status = state['status']
+    iteration = state['current_iteration']
+    max_iter = state['max_iterations']
+
+    if status in ("invalid", "unsolved", "empty"):
+        if iteration >= max_iter:
+            logger.info(f"No solution found | Status: {status} | Iterations: {iteration}/{max_iter}")
+            return "result"
+        logger.info(f"Retrying | Status: {status} | Iterations: {iteration}/{max_iter}")
+        return "moves"
+
+    if status == "success":
+        logger.info(f"Puzzle solved | Iterations: {iteration}/{max_iter}")
     else:
-        logger.warning(f"Unexpected status '{state['status']}', routing to result")
-        return "result"
+        logger.warning(f"Unexpected status '{status}', routing to result")
+
+    return "result"
